@@ -93,7 +93,7 @@ func (self *ElasticSearch) InsertOne(index, document_id string, data io.Reader) 
 		fmt.Println("Data creation failed", err)
 		return err
 	}
-	if res.StatusCode != 200 {
+	if res.StatusCode != 201 {
 		return fmt.Errorf("Data not inserted, status:%d ", res.StatusCode)
 	}
 	fmt.Println("Data creation Success", res.StatusCode)
@@ -119,7 +119,7 @@ func (self *ElasticSearch) FindById(index string, document_id string) error {
 	return nil
 }
 
-func (self *ElasticSearch) MatchSearchQueryBuilder(search_field, value string) *strings.Reader {
+func (self *ElasticSearch) MatchSearchQueryBuilder(search_field, value string, size int) *strings.Reader {
 	var query = fmt.Sprintf(`
 	"match": {
 		"%s": {
@@ -127,7 +127,7 @@ func (self *ElasticSearch) MatchSearchQueryBuilder(search_field, value string) *
 		}
 	  }`, search_field, value)
 
-	read := utility.ConstructQuery(query, 2)
+	read := utility.ConstructQuery(query, size)
 
 	var buf bytes.Buffer
 
@@ -137,16 +137,32 @@ func (self *ElasticSearch) MatchSearchQueryBuilder(search_field, value string) *
 	return read
 }
 
-func (self *ElasticSearch) Search(index, search_field, value string) error {
+func (self *ElasticSearch) MultiMatchSearchQueryBuilder(value string, size int) *strings.Reader {
+	var query = fmt.Sprintf(`
+	"multi_match": {
+		  "query": "%s",
+		  "fields": ["name^2", "email^3", "username^3", "phone_number"]
+		}`, value) // fields are variable can be change according to document.
+
+	read := utility.ConstructQuery(query, size)
+
+	var buf bytes.Buffer
+
+	if err := json.NewEncoder(&buf).Encode(read); err != nil {
+		log.Fatalf("json.NewEncoder() ERROR:", err)
+	}
+	return read
+}
+
+func (self *ElasticSearch) Search(index string, query *strings.Reader) error {
 	ctx := context.Background()
-	read := self.MatchSearchQueryBuilder(search_field, value)
 
 	var mapResp map[string]interface{}
 
 	res, err := self.client.Search(
 		self.client.Search.WithContext(ctx),
 		self.client.Search.WithIndex(index),
-		self.client.Search.WithBody(read),
+		self.client.Search.WithBody(query),
 		self.client.Search.WithTrackTotalHits(true),
 	)
 

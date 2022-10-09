@@ -2,6 +2,7 @@ package utility
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -20,5 +21,6 @@ func ConstructQuery(q string, size int) *strings.Reader {
 	var b strings.Builder
 	b.WriteString(query)
 	read := strings.NewReader(b.String())
+	fmt.Println("Final query", read)
 	return read
 }
